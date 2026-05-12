@@ -1,8 +1,11 @@
 **BMCC Honors Project: Tic-Tac-Toe Console Suite**
+
 **Inspiration**
+
 While basic programming focuses on linear execution, mastering Object-Oriented Programming (OOP) requires understanding how to encapsulate state and behavior. I hypothesized that building a Tic-Tac-Toe engine using the Gaddis Method would create a scalable system that separates the user interface from underlying game rules, making the code easier to debug and expand.
 
 **What it does****
+
 I developed a modular C++ application that manages a 3x3 game board through a dedicated TicTacToe class. The system uses a private array to track player moves and features a backend implementation of checkWinner() that performs exhaustive checks across rows, columns, and diagonals. It also includes makeMove() for coordinate validation to ensure data integrity during gameplay.
 
 **Challenges I ran into**
