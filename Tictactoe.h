@@ -20,14 +20,15 @@ private:
     char* board;
     int   totalMoves;
 
+    void       resetBoard();
     void       displayBoard() const;
     bool       isBoardFull() const;
     bool       isDrawCertain() const;
-    int        aiMove(char aiMarker, char humanMarker);
-    int        findBestMove(char marker);
+    int        aiMove(char aiMarker, char humanMarker);  // priority: win > block > centre > corner > edge
+    int        findBestMove(char marker);                // returns winning cell index, or -1
     int        getValidInput(const string& prompt, int low, int high);
     GameSignal getMoveInput(const string& prompt, int& outPos);
     GameSignal postGameMenu();
 };
 
-#endif
+#endif // TICTACTOE_H
