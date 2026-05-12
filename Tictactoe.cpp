@@ -4,20 +4,23 @@
 #include <stdexcept>
 #include <limits>
 #include <cctype>
-#include <cstdlib>
-#include <ctime>
+#include <random>
 
 using namespace std;
 
 TicTacToe::TicTacToe() {
     board = new char[9];
-    for (int i = 0; i < 9; ++i)
-        board[i] = static_cast<char>('1' + i);
-    totalMoves = 0;
+    resetBoard();
 }
 
 TicTacToe::~TicTacToe() {
     delete[] board;
+}
+
+void TicTacToe::resetBoard() {
+    for (int i = 0; i < 9; ++i)
+        board[i] = static_cast<char>('1' + i);
+    totalMoves = 0;
 }
 
 void TicTacToe::displayBoard() const {
@@ -160,7 +163,7 @@ GameSignal TicTacToe::getMoveInput(const string& prompt, int& outPos) {
 }
 
 GameSignal TicTacToe::postGameMenu() {
-    cout << "  R - Restart   M - Main menu   X - Quit\n";
+    cout << "  R - Restart match   M - Main menu   X - Quit\n";
     while (true) {
         cout << "  Your choice: ";
         string token;
@@ -178,9 +181,9 @@ GameSignal TicTacToe::postGameMenu() {
 
 GameSignal TicTacToe::playGame() {
     cout << "========================================\n";
-    cout << "              TIC-TAC-TOE               \n";
+    cout << "         TIC-TAC-TOE  (C++ OOP)\n";
     cout << "========================================\n";
-    cout << "  [X] Quit   [R] Restart   [M] Menu\n\n";
+    cout << "  [X] Quit   [R] Restart match   [M] Menu\n\n";
 
     int mode = getValidInput("Select mode - 1: Player vs Player   2: Player vs AI : ", 1, 2);
     bool vsAI = (mode == 2);
@@ -191,68 +194,94 @@ GameSignal TicTacToe::playGame() {
     getline(cin, player1Name);
     if (player1Name.empty()) player1Name = "Player 1";
 
+    int firstPlayer; // 0 = X slot, 1 = O slot
+
     if (vsAI) {
         player2Name = "Computer";
         cout << "You will face the Computer (O).\n";
+        int choice = getValidInput("Who goes first? 1: You   2: Computer : ", 1, 2);
+        firstPlayer = (choice == 1) ? 0 : 1;
     }
     else {
         cout << "Enter name for Player 2 (O): ";
         getline(cin, player2Name);
         if (player2Name.empty()) player2Name = "Player 2";
+        random_device rd;
+        mt19937 rng(rd());
+        firstPlayer = static_cast<int>(rng() % 2);
     }
-
-    // randomly decide who goes first
-    int currentPlayer = rand() % 2;
 
     char markers[2] = { 'X', 'O' };
     string names[2] = { player1Name, player2Name };
 
-    cout << "\n" << names[currentPlayer] << " goes first!\n";
-
+    // Outer loop: RESTART resets the board and replays with the same settings
     while (true) {
-        displayBoard();
+        resetBoard();
+        int currentPlayer = firstPlayer;
+        GameSignal turnSignal = GameSignal::NONE;
 
-        char myMarker = markers[currentPlayer];
-        char otherMarker = markers[1 - currentPlayer];
-        string& myName = names[currentPlayer];
-        int chosenIndex;
+        cout << "\n" << names[currentPlayer] << " goes first!\n";
 
-        if (vsAI && currentPlayer == 1) {
-            cout << myName << " is thinking...\n";
-            chosenIndex = aiMove(myMarker, otherMarker);
-            cout << myName << " plays at position " << (chosenIndex + 1) << ".\n";
-            board[chosenIndex] = myMarker;
-            ++totalMoves;
-        }
-        else {
-            while (true) {
-                int pos = 0;
-                GameSignal sig = getMoveInput(
-                    myName + " (" + myMarker + "), choose [1-9] or X/R/M: ", pos);
-                if (sig != GameSignal::NONE) return sig;
-                if (makeMove(pos, myMarker)) break;
-                cout << "  That cell is already taken.\n";
+        // Turn loop
+        while (true) {
+            displayBoard();
+
+            char myMarker = markers[currentPlayer];
+            char otherMarker = markers[1 - currentPlayer];
+            string& myName = names[currentPlayer];
+
+            // Determine if this slot is AI (only slot 1 in AI mode)
+            bool isAITurn = (vsAI && currentPlayer == 1);
+
+            if (isAITurn) {
+                cout << myName << " is thinking...\n";
+                int idx = aiMove(myMarker, otherMarker);
+                cout << myName << " plays at position " << (idx + 1) << ".\n";
+                board[idx] = myMarker;
+                ++totalMoves;
             }
+            else {
+                // Human turn: get a valid move or a hotkey signal
+                while (true) {
+                    int pos = 0;
+                    turnSignal = getMoveInput(
+                        myName + " (" + myMarker + "), choose [1-9] or X/R/M: ", pos);
+                    if (turnSignal != GameSignal::NONE) break; // hotkey pressed
+                    if (makeMove(pos, myMarker))        break; // valid move placed
+                    cout << "  That cell is already taken.\n";
+                }
+                if (turnSignal != GameSignal::NONE) break; // exit turn loop
+            }
+
+            if (checkWinner(myMarker)) {
+                displayBoard();
+                cout << "*** " << myName << " wins! Congratulations! ***\n\n";
+                turnSignal = postGameMenu();
+                break;
+            }
+
+            if (isBoardFull()) {
+                displayBoard();
+                cout << "*** It's a draw! ***\n\n";
+                turnSignal = postGameMenu();
+                break;
+            }
+
+            if (isDrawCertain()) {
+                displayBoard();
+                cout << "*** No one can win from here - it's a draw! ***\n\n";
+                turnSignal = postGameMenu();
+                break;
+            }
+
+            currentPlayer = 1 - currentPlayer;
         }
 
-        if (checkWinner(myMarker)) {
-            displayBoard();
-            cout << "*** " << myName << " wins! Congratulations! ***\n\n";
-            return postGameMenu();
+        // Handle signal from turn loop
+        if (turnSignal == GameSignal::RESTART) {
+            cout << "\n--- Restarting match ---\n";
+            continue; // loop back: resetBoard, same names/mode/firstPlayer
         }
-
-        if (isBoardFull()) {
-            displayBoard();
-            cout << "*** It's a draw! ***\n\n";
-            return postGameMenu();
-        }
-
-        if (isDrawCertain()) {
-            displayBoard();
-            cout << "*** No one can win from here - it's a draw! ***\n\n";
-            return postGameMenu();
-        }
-
-        currentPlayer = 1 - currentPlayer;
+        return turnSignal; // QUIT or MENU -> back to main
     }
 }
